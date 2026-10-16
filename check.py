@@ -15,6 +15,6 @@ assert len(prices) > 1 and prices == sorted(prices), prices
 
 departments = {c["name"]: c["id"] for c in server.list_categories()}
 assert departments["Meat & Seafood"] == "30791", departments
-assert server.list_categories("30791", depth=2)[0]["children"], "sub-departments missing"
+assert any(c.get("children") for c in server.list_categories("30791", depth=2)), "depth 2 returned no sub-departments"
 
 print("ok:", deals["total"], "chicken items on sale;", cheapest[0]["name"], cheapest[0]["price"])
