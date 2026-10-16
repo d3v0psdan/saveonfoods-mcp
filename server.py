@@ -26,7 +26,8 @@ mcp = MCPServer(
     "saveon-foods",
     instructions=(
         "Live catalogue and prices for the Save-On-Foods at 9th & Jasper, downtown Edmonton. "
-        "Use search_products to find items (set on_sale_only for this week's deals) and "
+        "Use search_products to find items (set on_sale_only for this week's deals), price_check to "
+        "cost a whole shopping list in one call, product_details for ingredients and nutrition, and "
         "list_categories to discover department ids. Sale prices run Thursday to Wednesday."
     ),
 )
@@ -45,6 +46,7 @@ def _slim(product: dict) -> dict:
         "sku": product["sku"],
         "name": product["name"],
         "price": product["price"],
+        "price_numeric": product.get("priceNumeric"),
         "unit_price": product.get("pricePerUnit"),
         "on_sale": product.get("priceSource") == "tpr",
         "sale_ends": active_sale.get("effectiveUntil") if active_sale else None,
@@ -119,6 +121,76 @@ def list_categories(parent_id: str = GROCERY_ROOT, depth: int = 1) -> list[dict]
         ]
 
     return walk(parent, depth)
+
+
+@mcp.tool()
+def product_details(sku: str) -> dict:
+    """Full detail for one product by sku (from search_products): regular and sale price,
+    ingredients with allergen statement, nutrition facts per serving, country attributes
+    and image URL. Fresh meat and produce usually carry no ingredients or nutrition."""
+    d = _get(f"/products/{sku}")
+    tpr = d.get("tprInfo") or {}
+    nutrition = ((d.get("nutritionProfiles") or {}).get("nutrition")) or {}
+    return {
+        "sku": d["sku"],
+        "name": d["name"],
+        "brand": d.get("brand"),
+        "description": d.get("description"),
+        "price": d.get("price"),
+        "regular_price": d.get("wasPrice"),
+        "unit_price": d.get("unitPrice"),
+        "on_sale": d.get("priceSource") == "tpr",
+        "sale_ends": tpr.get("effectiveUntil"),
+        "available": d.get("available"),
+        "category": d.get("defaultCategory"),
+        "ingredients": d.get("ingredients") or None,
+        "serving": (d.get("servingSize") or {}).get("description") or None,
+        "nutrition": {
+            name: f"{v['size']:g} {v['abbreviation']}" + (f" ({v['percentDailyValue']:g}% DV)" if v.get("percentDailyValue") is not None else "")
+            for name, v in nutrition.items()
+        },
+        "attributes": {k: v for k, v in (d.get("attributes") or {}).items() if v is True},
+        "image": (d.get("primaryImage") or {}).get("default"),
+    }
+
+
+@mcp.tool()
+def price_check(items: list[str], prefer_sale: bool = True) -> dict:
+    """Price a shopping list in one call. For each item returns the best match (first
+    relevance hit, or the first on-sale hit when prefer_sale is set) and the cheapest
+    available match, plus an estimated total of the best matches. Items with no match
+    are listed under `missing`."""
+    priced, missing = [], []
+    for item in items:
+        hits = [p for p in search_products(item, limit=10)["items"] if p["available"]]
+        if not hits:
+            missing.append(item)
+            continue
+        best = next((p for p in hits if p["on_sale"]), hits[0]) if prefer_sale else hits[0]
+        cheapest = min(hits, key=lambda p: p["price_numeric"] or float("inf"))
+        priced.append({"item": item, "best_match": best, "cheapest": cheapest})
+    total = sum(p["best_match"]["price_numeric"] or 0 for p in priced)
+    return {"items": priced, "missing": missing, "estimated_total": round(total, 2)}
+
+
+@mcp.tool()
+def find_stores(city: str = "Edmonton") -> list[dict]:
+    """Save-On-Foods locations in a city with the store id to use as SAVEON_STORE_ID,
+    address, hours, phone and whether pickup or delivery is offered."""
+    data = http.get("https://storefrontgateway.saveonfoods.com/api/stores", params={"take": 300})
+    data.raise_for_status()
+    return [
+        {
+            "store_id": s["retailerStoreId"],
+            "name": s["name"],
+            "address": f"{s['addressLine1']}, {s['city']}, {s['countyProvinceState']} {s['postCode']}",
+            "hours": s.get("openingHours"),
+            "phone": s.get("phone"),
+            "services": s.get("shoppingModes", []),
+        }
+        for s in data.json()["items"]
+        if city.lower() in (s.get("city") or "").lower()
+    ]
 
 
 @mcp.prompt()

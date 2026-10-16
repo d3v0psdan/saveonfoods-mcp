@@ -17,4 +17,15 @@ departments = {c["name"]: c["id"] for c in server.list_categories()}
 assert departments["Meat & Seafood"] == "30791", departments
 assert any(c.get("children") for c in server.list_categories("30791", depth=2)), "depth 2 returned no sub-departments"
 
+detail = server.product_details(deals["items"][0]["sku"])
+assert detail["regular_price"] and detail["on_sale"], detail
+cheese = server.product_details(server.search_products("shredded cheddar cheese")["items"][0]["sku"])
+assert "milk" in cheese["ingredients"].lower() and "Calories" in cheese["nutrition"], cheese
+
+basket = server.price_check(["ground beef", "sour cream", "zzqxv-nothing"])
+assert basket["estimated_total"] > 0 and basket["missing"] == ["zzqxv-nothing"], basket
+
+stores = {s["store_id"]: s["name"] for s in server.find_stores("Edmonton")}
+assert stores.get("6613") == "9th & Jasper", stores
+
 print("ok:", deals["total"], "chicken items on sale;", cheapest[0]["name"], cheapest[0]["price"])

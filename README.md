@@ -6,11 +6,14 @@ It covers one store at a time and is read only. It does not place orders, sign i
 
 ## What you get
 
-Two tools and one prompt.
+Five tools and one prompt.
 
 - `search_products` searches the catalogue with live prices and returns the match count plus a slim product list.
   Parameters: `query`, `category_id`, `on_sale_only`, `sort` (`relevance`, `price`, `price desc`), `limit`, `skip`.
   Fields per product: sku, name, price, unit price, on sale, sale end date, availability, category.
+- `product_details` returns one product by sku: regular and sale price, ingredients with the allergen statement, nutrition facts per serving, country of origin flags and an image URL. Fresh meat and produce usually carry no ingredients or nutrition.
+- `price_check` prices a whole shopping list in one call. For each item it returns the best match (preferring an on-sale hit), the cheapest match, and an estimated total.
+- `find_stores` lists Save-On-Foods locations in a city with the store id, address, hours, phone and pickup or delivery availability.
 - `list_categories` returns the department tree (Meat & Seafood, Fruits & Vegetables, Pantry, and so on) with the ids you pass to `search_products`.
 - `meal_ideas` is a prompt that walks Claude through pulling deals per department and proposing priced dinners.
 
@@ -20,6 +23,8 @@ Questions it answers well:
 - Find the cheapest tofu.
 - Everything on sale in Meat & Seafood, cheapest first.
 - Plan three dinners under $20 each from the flyer.
+- Price this list: ground beef, taco kit, shredded cheese, sour cream.
+- Does the Tex Mex cheese contain anything besides milk?
 
 ## Setup
 
@@ -80,14 +85,14 @@ Responses are cut down to eight fields per product so a 50 item result stays sma
 
 ## Files
 
-- `server.py` is the whole server: HTTP client, two tools, one prompt.
+- `server.py` is the whole server: HTTP client, five tools, one prompt.
 - `check.py` is the smallest check that fails if the API or the field mapping breaks. Run it after any change.
 - `pyproject.toml` and `uv.lock` pin the dependencies: `mcp` and `httpx`.
 
 ## Known gaps
 
-- The list payload does not include the regular price, so results show the current price only.
-- Product details such as ingredients and nutrition are available from the gateway but not exposed yet.
+- Search results show the current price only. Call `product_details` for the regular price of a sale item.
+- `price_check` runs one search per item, so a 20 item list takes a few seconds.
 - The gateway is unofficial. If Save-On-Foods changes it, `check.py` is the first thing that will fail.
 
 ## License
