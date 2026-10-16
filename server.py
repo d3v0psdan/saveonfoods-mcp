@@ -162,7 +162,13 @@ def price_check(items: list[str], prefer_sale: bool = True) -> dict:
     are listed under `missing`."""
     priced, missing = [], []
     for item in items:
-        hits = [p for p in search_products(item, limit=10)["items"] if p["available"]]
+        # ponytail: the gateway never returns an empty result (it falls back to loosely related
+        # products), so keep only hits whose name contains every word of the query.
+        words = [w for w in item.lower().split() if len(w) > 2]
+        hits = [
+            p for p in search_products(item, limit=15)["items"]
+            if p["available"] and all(w in p["name"].lower() for w in words)
+        ]
         if not hits:
             missing.append(item)
             continue

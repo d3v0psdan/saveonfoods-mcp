@@ -19,7 +19,10 @@ assert any(c.get("children") for c in server.list_categories("30791", depth=2)),
 
 detail = server.product_details(deals["items"][0]["sku"])
 assert detail["regular_price"] and detail["on_sale"], detail
-cheese = server.product_details(server.search_products("shredded cheddar cheese")["items"][0]["sku"])
+cheese = next(
+    d for d in (server.product_details(p["sku"]) for p in server.search_products("shredded cheese", limit=8)["items"])
+    if d["ingredients"]
+)
 assert "milk" in cheese["ingredients"].lower() and "Calories" in cheese["nutrition"], cheese
 
 basket = server.price_check(["ground beef", "sour cream", "zzqxv-nothing"])
