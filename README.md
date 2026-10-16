@@ -26,8 +26,8 @@ Questions it answers well:
 You need Python 3.13 or newer and [uv](https://docs.astral.sh/uv/).
 
 ```sh
-git clone <repo-url>
-cd saveon-mcp
+git clone https://github.com/d3v0psdan/saveonfoods-mcp.git
+cd saveonfoods-mcp
 uv sync
 uv run python check.py   # hits the live API; prints "ok: ..." when the mapping still works
 ```
@@ -92,4 +92,4 @@ Responses are cut down to eight fields per product so a 50 item result stays sma
 
 ## License
 
-TODO: pick a license before publishing.
+[MIT](LICENSE).
